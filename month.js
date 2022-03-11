@@ -1,3 +1,3 @@
-import monthFromDate from './months.js';
+var month = require('./months.js');
 const dateString = process.argv[2] ?? null;
-console.log(monthFromDate(dateString));
+console.log(month.monthFromDate(dateString));
