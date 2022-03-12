@@ -1,8 +1,15 @@
 
+
+- [ES6 with File Name Hack](#es6-with-file-name-hack)
+- [Module Types](#module-types)
+- [Something That Works with CommonJS](#something-that-works-with-commonjs)
+	- [Sort Of...](#sort-of)
+	- [Push the Async Concerns up the Stack](#push-the-async-concerns-up-the-stack)
+	- [Make the User Pay](#make-the-user-pay)
+- [ES6 Core with a CommonJS Wrapper](#es6-core-with-a-commonjs-wrapper)
+
 ## ES6 with File Name Hack
-
 If you don't have a `package.json` you can use `.mjs` as a file extension and share code between Node.js and the browser.
-
 Here is `month.mjs`:
 
 ```javascript
@@ -283,4 +290,79 @@ and in the browser:
 </html>
 ```
 
-That forces the user of the library to face the facts, but it seems like it should be unnecessary. FWIW it seems to be the most common implementation choice for CommonJS modules in the wild.
+That forces the user of the library to face the facts, but it seems like it should be unnecessary because `monthFromDate()` as originally implemented is not asynchronous. FWIW it seems to be the most common implementation choice for CommonJS modules in the wild. And it works.
+
+### Make the User Pay
+
+We have an asynchronous `init()` function, and the user is going to have to know about it. Sigh:
+
+```javascript
+let initFunc = async function(exports) {
+  // ... all the code from the old library
+  return init().then(
+    () => {
+      exports.monthFromDate = monthFromDate;
+      return exports;
+    }
+  )
+} 
+
+if (typeof module !== 'undefined' && module.exports)
+  module.exports.init = () => initFunc(exports)
+else
+  this.init = () => initFunc(this)
+```
+
+The user code now looks like this:
+
+```javascript
+> var month = require('./months.js')
+undefined
+> await month.init().then(() => console.log(month.monthFromDate('2022-03-23')))
+Initialized months
+January
+March
+```
+
+or
+
+```
+$ cat month.js
+var month = require('./months.js');
+const dateString = process.argv[2] ?? null;
+month.init().then(() => console.log(month.monthFromDate(dateString)));
+$ node month.js 2022-03-23
+Initialized months
+January
+March
+```
+
+## ES6 Core with a CommonJS Wrapper
+
+The slightly good news is that ES6 `import` is asynchronous by definition so users can just import and go if we re-arrange the library into an ES6 module `months.mjs` (same as at the beginning). ES6 users can still use it just like before but the common folk will need their own wrapper (`months.js`):
+
+```javascript
+let initFunc = async function (exports) {
+  return import('./months.mjs').then(
+    months => {
+      exports.monthFromDate = months.monthFromDate;
+      return exports;
+    }
+  )
+}
+
+if (typeof module !== 'undefined' && module.exports)
+  module.exports.init = () => initFunc(exports)
+else
+  this.init = () => initFunc(window)
+```
+
+Then they can deal with the asynchronous initializer explicitly:
+
+```javascript
+> var month = require('./months.js')
+> await month.init().then(() => console.log(month.monthFromDate('2022-03-23')))
+Initialized months
+January
+March
+```
