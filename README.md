@@ -12,6 +12,7 @@ We are going to look at a simple example of each of those options, just to see h
 - [JavaScript Modules](#javascript-modules)
 	- [Simple ES6 Example](#simple-es6-example)
 		- [File Name Hack](#file-name-hack)
+		- [Import Maps](#import-maps)
 	- [Hello CommonJS](#hello-commonjs)
 		- [File Name Hack](#file-name-hack-1)
 	- [Browser Globals](#browser-globals)
@@ -77,6 +78,31 @@ You can also use our simple library in the browser in exactly the same way (star
 ### File Name Hack
 
 With Node.js if you don't have a `package.json` you can use `.mjs` as a file extension. So rename all your `.js` files as `.mjs` and things just work with ES6. But not with CommonJS (it's one or the other).
+
+### Import Maps
+
+Modern browsers don't justy support ES6, they also have a way to map the library script locations to their names. This means they can be used with the same `import` in Node.js and in the browser. An example for our simple library would be:
+
+```html
+<html>
+	<body>
+		<h2>Month</h2>
+		<script type="importmap">
+			{
+				"imports": {
+					"hello": "./hello.js"
+				}
+			}
+		</script>
+		<script type="module">
+			import hello from 'hello';
+			console.log(hello.hello());
+		</script>
+	</body>
+</html>
+```
+
+It doesn't look all that impressive yet because the module is not defined as 'hello' in Node.js. We could publish `hello.js` as just `hello`, then the exact same code can be used in the browser and on the server. That's what most JavaScript libraries do - they have module names not file paths, and Node.js searches for the right file to load at runtime.
 
 ## Hello CommonJS
 

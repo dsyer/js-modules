@@ -1,8 +1,15 @@
 <html>
 	<body>
 		<h2>Month</h2>
+		<script type="importmap">
+			{
+				"imports": {
+					"months": "./months.mjs"
+				}
+			}
+		</script>
 		<script type="module">
-			import monthFromDate from "./months.mjs";
+			import monthFromDate from 'months';
 			console.log(monthFromDate("2022-03-23"));
 		</script>
 	</body>
