@@ -3,11 +3,11 @@
 
 A module system is a tool for encapsulating library code into self-contained chunks that explicitly and deliberately export their public API. JavaScript has had a few different module systems over the years, but things seem to have settled down a bit, and while some of the older attempts are sometimes still seen, there are 3 main options to consider if you are writing a JavaScript library.
 
-1. The newest and shiniest module system is the standard one that is part of the language now: ECMAScript Modules, sometimes referred to as ESM, or ES6. It is supported by all modern browsers and recent versions of Node.js.
-2. Before ES6 existed a lot of effort went into CommonJS. It was *the* module system for Node.js for some time, and nearly all JavaScript libraries support it now. It is not supported natively in the browser.
-3. The last option which is worth considering is "no module system". It might upset the purists often works pretty well in the browser, and a lot of libraries that are aimed at the browser ship this way.
+1. The newest and shiniest module system is the standard one that is part of the language now: [ECMAScript Modules](https://nodejs.org/api/esm.html), sometimes referred to as ESM, or ES6. It is supported by all modern browsers and recent versions of Node.js.
+2. Before ES6 existed a lot of effort went into [CommonJS](https://nodejs.org/api/modules.html). It was *the* module system for Node.js for some time, and nearly all JavaScript libraries support it now. It is not supported natively in the browser.
+3. The last option which is worth considering is "no module system". It might upset the purists but often works pretty well in the browser, and a lot of libraries ship this way.
 
-We are going to look at a simple example of each of those options, just to see how they work, and then we are going to change the focus to a specific challenge of supporting all 3 in the same library. To make it more interesting the example for that exercise will have an asynchronous initializer - some work that has to be done before the library API works, but has to be done asynchronously (e.g. by loading some data from a file or remote endpoint).
+We are going to look at a simple example of each of those options, just to see how they work, and then we are going to change the focus to a specific challenge of supporting all 3 in the same library. To make it more interesting the example for that exercise it will have an asynchronous initializer - some work that has to be done before the library API works, but has to be done asynchronously (e.g. by loading some data from a file or remote endpoint). This will lead to some additional unpleasantness and compromise.
 
 - [JavaScript Modules](#javascript-modules)
 	- [Simple ES6 Example](#simple-es6-example)
@@ -17,10 +17,11 @@ We are going to look at a simple example of each of those options, just to see h
 	- [Browser Globals](#browser-globals)
 	- [CommonJS and Browser Globals Together](#commonjs-and-browser-globals-together)
 	- [An Asynchronous Initializer](#an-asynchronous-initializer)
+		- [Implementation](#implementation)
 	- [Something That Works with CommonJS](#something-that-works-with-commonjs)
 		- [Sort Of...](#sort-of)
 		- [Push the Async Concerns up the Stack](#push-the-async-concerns-up-the-stack)
-		- [Make the User Pay](#make-the-user-pay)
+		- [Expose the Initializer](#expose-the-initializer)
 	- [ES6 Core with a CommonJS Wrapper](#es6-core-with-a-commonjs-wrapper)
 
 ## Simple ES6 Example
@@ -211,7 +212,39 @@ January
 March
 ```
 
-> NOTE: You can find the source code for a working implementation of `months.js` in [GitHub](https://github.com/dsyer/js-modules).
+### Implementation
+
+You can find the source code for a working implementation of `months.mjs` in [GitHub](https://github.com/dsyer/js-modules/blob/main/months.mjs). The basic ingredients are some code to load the months data (the asynchronous part) and some code to define the exported `monthFromDate()`. We start by extracting the data loading part to a separate function :
+
+```javascript
+async function bytes(path) {
+  // ... read a file and suck out the content as a byte[]
+}
+
+let init = async function () {
+	const MONTHS = new TextDecoder().decode(await bytes('months.txt'))
+		.split("\n")
+		.filter(word => word.length > 0);
+	console.log("Initialized months");
+	monthFromDate = function(date) {
+		// ... some defensive code in case date is empty
+		return MONTHS[new Date(date).getMonth()];
+	};
+}
+```
+
+We want the `bytes()` function to work in the browser, loading the data from a remote endpoint, or in Node.js, loading from a local file. We can do that with `fetch` in the browser and the `fs` module in Node.js:
+
+```javascript
+async function bytes(path) {
+  if (typeof fetch !== "undefined") {
+    return await fetch(path).then(response => response.arrayBuffer());
+  }
+  return await import('fs').then(fs => fs.readFileSync(path));
+}
+```
+
+Note the use of the "dynamic import" for 'fs'. We can't use `import 'fs'` because that doesn't work in the browser and there is no way to make it conditional.
 
 ## Something That Works with CommonJS
 
@@ -219,13 +252,13 @@ The ES6 implementation `months.mjs` is not a CommonJS module. We need something 
 
 ### Sort Of...
 
-So something that sort of works for our library is:
+We might start with this:
 
 ```javascript
 let monthFromDate;
 
 let init = async function () {
-  // ... initialize the months
+  // ... initialize the months and monthFromDate
   if (typeof module !== 'undefined' && module.exports)
     exports.monthFromDate = monthFromDate;
   else
@@ -266,7 +299,7 @@ January
 'March'
 ```
 
-Because `init()` is asynchronous it only works because there is a pause between the `require()` and the call to `monthFromDate()`. And it doesn't work in the browser at all. E.g. you might try:
+Because `init()` is asynchronous it only looks like it works because there is a pause between the `require()` and the call to `monthFromDate()`. And it doesn't work in the browser at all. E.g. you might try:
 
 ```html
 <html>
@@ -345,7 +378,7 @@ and in the browser:
 
 That forces the user of the library to face the facts, but it seems like it should be unnecessary because `monthFromDate()` as originally implemented is not asynchronous. FWIW it seems to be the most common implementation choice for CommonJS modules in the wild.
 
-### Make the User Pay
+### Expose the Initializer
 
 We have an asynchronous `init()` function, and the user is going to have to know about it. Sigh:
 
@@ -392,7 +425,7 @@ March
 
 ## ES6 Core with a CommonJS Wrapper
 
-The slightly good news is that ES6 `import` is asynchronous by definition so users can just import and go if we re-arrange the library into an ES6 module `months.mjs` (same as at the beginning). ES6 users can still use it just like before but the common folk will need their own wrapper (`months.js`):
+The slightly good news is that ES6 `import` is asynchronous by definition so if we re-arrange the library into an ES6 module `months.mjs` (same as at the beginning) users can just import and go. ES6 users can still use it just like before but the common folk will need their own wrapper (`months.js`):
 
 ```javascript
 let initFunc = async function (exports) {
@@ -418,4 +451,32 @@ Then they can deal with the asynchronous initializer explicitly:
 Initialized months
 January
 March
+```
+
+It works in the browser with the global namespace:
+
+```html
+<html>
+	<body>
+		<h2>Month</h2>
+		<script src="./months.js"></script>
+		<script>
+			init().then(() => console.log(monthFromDate("2022-03-23")));
+		</script>
+	</body>
+</html>
+```
+
+but it also works (better) as an ES6 module:
+
+```html
+<html>
+	<body>
+		<h2>Month</h2>
+		<script type="module">
+			import monthFromDate from "./months.mjs";
+			console.log(monthFromDate("2022-03-23"));
+		</script>
+	</body>
+</html>
 ```
