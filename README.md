@@ -24,6 +24,7 @@ We are going to look at a simple example of each of those options, just to see h
 		- [Push the Async Concerns up the Stack](#push-the-async-concerns-up-the-stack)
 		- [Expose the Initializer](#expose-the-initializer)
 	- [ES6 Core with a CommonJS Wrapper](#es6-core-with-a-commonjs-wrapper)
+	- [CommonJS with an ES6 Wrapper](#commonjs-with-an-es6-wrapper)
 
 ## Simple ES6 Example
 
@@ -506,3 +507,34 @@ but it also works (better) as an ES6 module:
 	</body>
 </html>
 ```
+
+## CommonJS with an ES6 Wrapper
+
+We can also wrap things up the opposite way. Starting with the CommonJS version of `months.js`, which already works in Node.js and in the browser like this:
+
+```html
+<html>
+	<body>
+		<h2>Month</h2>
+		<script src="months.js"></script>
+		<script>
+			init().then(() => console.log(monthFromDate("2022-03-23")));
+		</script>
+	</body>
+</html>
+```
+
+We can wrap it in an ES6 module that works in Node.js:
+
+```javascript
+var month = require('./months.js')
+
+await month.init();
+
+let monthFromDate = month.monthFromDate;
+
+export {monthFromDate};
+export default monthFromDate
+```
+
+but it doesn't work in the browser because there is no `require()` function. You can also `import` a CommonJS module from Node.js instead of using `require()`, but neither works in the browser.
