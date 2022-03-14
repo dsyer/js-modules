@@ -1,36 +1,17 @@
-let MONTHS;
-let monthFromDate;
-
-let calledInit = false;
-
-async function bytes(path) {
-  if (typeof fetch !== "undefined") {
-    return await fetch(path).then(response => response.arrayBuffer());
-  }
-  return await import('fs').then(fs => fs.readFileSync(path));
+if (typeof fetch === 'undefined') {
+  await import('module').then(module => globalThis.require = module.createRequire(import.meta.url));
+} else {
+  await fetch('./bundle.js').then(response => response.text()).then(script =>
+    globalThis.require = Function(script.replace('"/months.js"', '"./months.js"').replace('"/hello.js"', '"./hello.js"')  + ';\nreturn require;')()
+  );
 }
 
-let init = async function () {
-  if (!calledInit) {
-    calledInit = true;
-    MONTHS = new TextDecoder().decode(await bytes('months.txt'))
-      .split("\n")
-      .filter(word => word.length > 0);
-    console.log("Initialized months");
-    monthFromDate = function(date) {
-      if (!date) {
-        date = null;
-      }
-      if (!(date instanceof Date)) {
-        date = new Date(date);
-      }
-      return MONTHS[date.getMonth()];
-    };
-    console.log(monthFromDate());
-  }
-}
 
-await init();
+let month = require('./months.js');
 
-export {MONTHS, monthFromDate}
+await month.init();
+
+let monthFromDate = month.monthFromDate;
+
+export {monthFromDate};
 export default monthFromDate

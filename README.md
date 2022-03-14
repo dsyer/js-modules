@@ -18,13 +18,14 @@ We are going to look at a simple example of each of those options, just to see h
 	- [Browser Globals](#browser-globals)
 	- [CommonJS and Browser Globals Together](#commonjs-and-browser-globals-together)
 	- [An Asynchronous Initializer](#an-asynchronous-initializer)
-		- [Implementation](#implementation)
+		- [Implementation of Initializer](#implementation-of-initializer)
 	- [Something That Works with CommonJS](#something-that-works-with-commonjs)
 		- [Sort Of...](#sort-of)
 		- [Push the Async Concerns up the Stack](#push-the-async-concerns-up-the-stack)
 		- [Expose the Initializer](#expose-the-initializer)
 	- [ES6 Core with a CommonJS Wrapper](#es6-core-with-a-commonjs-wrapper)
 	- [CommonJS with an ES6 Wrapper](#commonjs-with-an-es6-wrapper)
+		- [Browserify](#browserify)
 
 ## Simple ES6 Example
 
@@ -86,20 +87,20 @@ Modern browsers don't justy support ES6, they also have a way to map the library
 
 ```html
 <html>
-	<body>
-		<h2>Month</h2>
-		<script type="importmap">
-			{
-				"imports": {
-					"hello": "./hello.js"
-				}
-			}
-		</script>
-		<script type="module">
-			import hello from 'hello';
-			console.log(hello.hello());
-		</script>
-	</body>
+    <body>
+        <h2>Month</h2>
+        <script type="importmap">
+            {
+                "imports": {
+                    "hello": "./hello.js"
+                }
+            }
+        </script>
+        <script type="module">
+            import hello from 'hello';
+            console.log(hello.hello());
+        </script>
+    </body>
 </html>
 ```
 
@@ -230,7 +231,7 @@ const dateString = process.argv[2] ?? null;
 console.log(monthFromDate(dateString));
 ```
 
-We don't need to wait for the initializer because the module did that for us. We don't even need to know that there is an initializer - it's not part of the public API. We can run it on the command line like this:
+We don't need to wait for the initializer because the module loader did that for us. We don't even need to know that there is an initializer - it's not part of the public API. We can run it on the command line like this:
 
 ```
 $ node main.mjs 2022-03-23
@@ -239,7 +240,7 @@ January
 March
 ```
 
-### Implementation
+### Implementation of Initializer
 
 You can find the source code for a working implementation of `months.mjs` in [GitHub](https://github.com/dsyer/js-modules/blob/main/months.mjs). The basic ingredients are some code to load the months data (the asynchronous part) and some code to define the exported `monthFromDate()`. We start by extracting the data loading part to a separate function :
 
@@ -249,14 +250,14 @@ async function bytes(path) {
 }
 
 let init = async function () {
-	const MONTHS = new TextDecoder().decode(await bytes('months.txt'))
-		.split("\n")
-		.filter(word => word.length > 0);
-	console.log("Initialized months");
-	monthFromDate = function(date) {
-		// ... some defensive code in case date is empty
-		return MONTHS[new Date(date).getMonth()];
-	};
+    const MONTHS = new TextDecoder().decode(await bytes('months.txt'))
+        .split("\n")
+        .filter(word => word.length > 0);
+    console.log("Initialized months");
+    monthFromDate = function(date) {
+        // ... some defensive code in case date is empty
+        return MONTHS[new Date(date).getMonth()];
+    };
 }
 ```
 
@@ -275,7 +276,7 @@ Note the use of the "dynamic import" for 'fs'. We can't use `import 'fs'` becaus
 
 ## Something That Works with CommonJS
 
-The ES6 implementation `months.mjs` is not a CommonJS module. We need something different. In fact, as we will see, we need to face an ugly fact.
+The ES6 implementation `months.mjs` is not a CommonJS module. We need something different if we want to support CommonJS. In fact, we need to face the ugly fact that CommonJS is not an asynchronous module loader.
 
 ### Sort Of...
 
@@ -484,13 +485,13 @@ It works in the browser with the global namespace:
 
 ```html
 <html>
-	<body>
-		<h2>Month</h2>
-		<script src="./months.js"></script>
-		<script>
-			init().then(() => console.log(monthFromDate("2022-03-23")));
-		</script>
-	</body>
+    <body>
+        <h2>Month</h2>
+        <script src="./months.js"></script>
+        <script>
+            init().then(() => console.log(monthFromDate("2022-03-23")));
+        </script>
+    </body>
 </html>
 ```
 
@@ -498,33 +499,33 @@ but it also works (better) as an ES6 module:
 
 ```html
 <html>
-	<body>
-		<h2>Month</h2>
-		<script type="module">
-			import monthFromDate from "./months.mjs";
-			console.log(monthFromDate("2022-03-23"));
-		</script>
-	</body>
+    <body>
+        <h2>Month</h2>
+        <script type="module">
+            import monthFromDate from "./months.mjs";
+            console.log(monthFromDate("2022-03-23"));
+        </script>
+    </body>
 </html>
 ```
 
 ## CommonJS with an ES6 Wrapper
 
-We can also wrap things up the opposite way. Starting with the CommonJS version of `months.js`, which already works in Node.js and in the browser like this:
+We can also try to wrap things up the opposite way. Starting with the CommonJS version of `months.js`, which already works in Node.js and in the browser like this:
 
 ```html
 <html>
-	<body>
-		<h2>Month</h2>
-		<script src="months.js"></script>
-		<script>
-			init().then(() => console.log(monthFromDate("2022-03-23")));
-		</script>
-	</body>
+    <body>
+        <h2>Month</h2>
+        <script src="months.js"></script>
+        <script>
+            init().then(() => console.log(monthFromDate("2022-03-23")));
+        </script>
+    </body>
 </html>
 ```
 
-We can wrap it in an ES6 module that works in Node.js:
+We can try and wrap it in an ES6 module:
 
 ```javascript
 var month = require('./months.js')
@@ -537,4 +538,101 @@ export {monthFromDate};
 export default monthFromDate
 ```
 
-but it doesn't work in the browser because there is no `require()` function. You can also `import` a CommonJS module from Node.js instead of using `require()`, but neither works in the browser.
+but it doesn't work because there is no `require()` function.
+
+There's one last thing to try -- we can implement a module loader. Here is the code to read the CommonJS module as a raw string, and use `Function` to evaluate it:
+
+```javascript
+let month = {};
+var script;
+
+if (typeof fetch === 'undefined') {
+  script = await import('fs').then(fs => fs.readFileSync(path, {encoding: 'utf8'}));
+} else {
+  script = await fetch('./months.js').then(response => response.text()));
+}
+
+Function('return function(module, exports) {\n' +
+  script
+  + '\n}')()({exports:month}, month);
+
+await month.init();
+
+let monthFromDate = month.monthFromDate;
+
+export {monthFromDate};
+export default monthFromDate
+```
+
+This works in `main.mjs` and in the browser:
+
+```javascript
+<html>
+    <body>
+        <h2>Month</h2>
+        <script type="module">
+            import monthFromDate from './months.mjs';
+            console.log(monthFromDate("2022-03-23"));
+        </script>
+    </body>
+</html>
+```
+
+It would break if the module we required itself needed to `require()` another module. We could try and fix that by defining our own `require()` function using the code above, but sadly this will not work because it has to be asynchronous (as can be seen from the presence of `await`); with CommonJS `require()` is synchronous. In Node.js we can make it work with the "module" built in package:
+
+```javascript
+await import('module').then(module => globalThis.require = module.createRequire(import.meta.url));
+
+let month = require('./months.js');
+
+await month.init();
+
+let monthFromDate = month.monthFromDate;
+
+export {monthFromDate};
+export default monthFromDate
+```
+
+but this won't work in the browser still.
+
+### Browserify
+
+There is a Node.js tool called [browserify](https://github.com/browserify/browserify) that we can use to build a `require()` function for the browser.
+
+```
+$ npm install --no-save browserify
+$ node node_modules/browserify/bin/cmd.js -r ./months.js -r ./hello.js | sed -e 's,"/,"./,g' > bundle.js
+```
+
+> NOTE: We had to fix the generated code with `sed` because for some reason it strips the leading `.` from relative module names.
+
+Then in a browser you could do this:
+
+```html
+<script src="bundle.js"></script>
+<script>
+	var month = require('./months.js');
+</script>
+```
+
+It works because the generated `bundle.js` defines the global `require()` to load the named modules by running the code in the input source files. We can use that `bundle.js` in our ES6 wrapper:
+
+```javascript
+if (typeof fetch === 'undefined') {
+  await import('module').then(module => globalThis.require = module.createRequire(import.meta.url));
+} else {
+  await fetch('./bundle.js').then(response => response.text()).then(script =>
+    globalThis.require = Function(script  + ';\nreturn require;')()
+  );
+}
+
+let month = require('./months.js');
+
+await month.init();
+
+let monthFromDate = month.monthFromDate;
+
+export {monthFromDate};
+export default monthFromDate
+```
+
