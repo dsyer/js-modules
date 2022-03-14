@@ -1,8 +1,36 @@
-let month = require('./months.js');
+let MONTHS;
+let monthFromDate;
 
-await month.init();
+let calledInit = false;
 
-let monthFromDate = month.monthFromDate;
+async function bytes(path) {
+  if (typeof fetch !== "undefined") {
+    return await fetch(path).then(response => response.arrayBuffer());
+  }
+  return await import('fs').then(fs => fs.readFileSync(path));
+}
 
-export {monthFromDate};
+let init = async function () {
+  if (!calledInit) {
+    calledInit = true;
+    MONTHS = new TextDecoder().decode(await bytes('months.txt'))
+      .split("\n")
+      .filter(word => word.length > 0);
+    console.log("Initialized months");
+    monthFromDate = function(date) {
+      if (!date) {
+        date = null;
+      }
+      if (!(date instanceof Date)) {
+        date = new Date(date);
+      }
+      return MONTHS[date.getMonth()];
+    };
+    console.log(monthFromDate());
+  }
+}
+
+await init();
+
+export {MONTHS, monthFromDate}
 export default monthFromDate
