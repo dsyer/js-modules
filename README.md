@@ -1,5 +1,4 @@
-
-# JavaScript Modules
+# JavaScript Modules Primer
 
 A module system is a tool for encapsulating library code into self-contained chunks that explicitly and deliberately export their public API. JavaScript has had a few different module systems over the years, but things seem to have settled down a bit, and while some of the older attempts are sometimes still seen, there are 3 main options to consider if you are writing a JavaScript library.
 
@@ -7,9 +6,9 @@ A module system is a tool for encapsulating library code into self-contained chu
 2. Before ES6 existed a lot of effort went into [CommonJS](https://nodejs.org/api/modules.html). It was *the* module system for Node.js for some time, and nearly all JavaScript libraries support it now. It is not supported natively in the browser.
 3. The last option which is worth considering is "no module system". It might upset the purists but often works pretty well in the browser, and a lot of libraries ship this way.
 
-We are going to look at a simple example of each of those options, just to see how they work, and then we are going to change the focus to a specific challenge of supporting all 3 in the same library. To make it more interesting the example for that exercise it will have an asynchronous initializer - some work that has to be done before the library API works, but has to be done asynchronously (e.g. by loading some data from a file or remote endpoint). This will lead to some additional unpleasantness and compromise.
+We are going to look at a simple example of each of those options, just to see how they work, and then we are going to change the focus to a specific challenge of supporting all 3 in the same library. To make it more interesting, the example for that exercise will have an asynchronous initializer - some work that has to be done before the library API works, but has to be done asynchronously (e.g. by loading some data from a file or remote endpoint). This will lead to some additional unpleasantness and compromises.
 
-- [JavaScript Modules](#javascript-modules)
+- [JavaScript Modules Primer](#javascript-modules-primer)
 	- [Simple ES6 Example](#simple-es6-example)
 		- [File Name Hack](#file-name-hack)
 		- [Import Maps](#import-maps)
@@ -26,6 +25,7 @@ We are going to look at a simple example of each of those options, just to see h
 	- [ES6 Core with a CommonJS Wrapper](#es6-core-with-a-commonjs-wrapper)
 	- [CommonJS with an ES6 Wrapper](#commonjs-with-an-es6-wrapper)
 		- [Browserify](#browserify)
+	- [Conclusions](#conclusions)
 
 ## Simple ES6 Example
 
@@ -63,7 +63,7 @@ $ node main.js
 Hello World
 ```
 
-You can also use our simple library in the browser in exactly the same way (start a webserver with `python -m http.server 8000` if you need it):
+You can also use this simple library in the browser in exactly the same way (start a webserver with `python -m http.server 8000` if you need it):
 
 ```html
 <html>
@@ -104,11 +104,11 @@ Modern browsers don't justy support ES6, they also have a way to map the library
 </html>
 ```
 
-It doesn't look all that impressive yet because the module is not defined as 'hello' in Node.js. We could publish `hello.js` as just `hello`, then the exact same code can be used in the browser and on the server. That's what most JavaScript libraries do - they have module names not file paths, and Node.js searches for the right file to load at runtime.
+It doesn't look all that impressive yet because the module is not defined as 'hello' in Node.js. We could publish `hello.js` as `hello` by moving it to `node_modules/hello/index.js`, and then the exact same code can be used in the browser and on the server. That's what most JavaScript libraries do - they have module names not file paths, and Node.js searches for the right file to load at runtime.
 
 ## Hello CommonJS
 
-Node.js provides a global `require()` function that you use to load a library. It wraps the module code with a [wrapper](https://nodejs.org/api/modules.html#the-module-wrapper):
+Node.js provides a global `require()` function that you use to load a library using the CommonJS module loader. It wraps the module code with a [wrapper](https://nodejs.org/api/modules.html#the-module-wrapper) and then calls it:
 
 ```javascript
 (function(exports, require, module, __filename, __dirname) {
@@ -122,7 +122,7 @@ The parameters are:
 * `module` is a subset of `exports`
 * `__filename` and `__dirname` are convenience variables containing the path to the module being loaded
 
-We have to re-write our `hello.js`. One way to do that would be simply to add the `hello` function to the `exports`:
+We have to re-write our `hello.js`. One simple way to do that would be to add the `hello` function to the `exports`:
 
 ```javascript
 let hello = function() {
@@ -140,7 +140,7 @@ $ node
 'Hello World'
 ```
 
-You can't use it in its current form in the browser because there is no `exports` global variable nin the browser.
+You can't use it in its current form in the browser because there is no `exports` global variable in the browser.
 
 ### File Name Hack
 
@@ -203,13 +203,13 @@ It is quite common to ship a library that is intended for use in both Node.js an
 })()
 ```
 
-and it works in Node.js because of the first branch testing the existence of `module`, and in the browser because of the second branch. There are a few extra lines of code on top of what you need for CommonJS, but it might be worth it for maximum convenience for your users that mainly code for the browser.
+It works in Node.js because of the first branch testing the existence of `module`, and in the browser because of the second branch. There are a few extra lines of code on top of what you need for CommonJS, but it might be worth it for maximum convenience for your users that mainly code for the browser.
 
 > NOTE: in this last example we used `module.exports` instead of just `exports`. It's the same object. Some libraries actually replace `module.exports` with a function, instead of an object. For example if `module.exports = hello` above you could assign `var hello = require('./hello.js')` and call `hello()` directly.
 
 ## An Asynchronous Initializer
 
-To make things more interesting we want the library module to have an asynchonrous initializer. This is quite a common use case, and arose naturally for me when learning about WebAssembly. We are going  to create a library that translates date strings into month names. The data for the month names could be hard-coded in the library and than it wouldn't need an asynchronous initializer, but instead we are going to load it from a file. Here's the structure of an ES6 library `months.mjs` that does this:
+To make things more interesting we want the library module to have an asynchonrous initializer. This is quite a common use case, and arises naturally when learning about WebAssembly. To show how it works we are going  to create a library that translates date strings into month names. The data for the month names could be hard-coded in the library and then it wouldn't need an asynchronous initializer, but instead we are going to load it from a file. Here's the structure of an ES6 library `months.mjs` that does this:
 
 ```javascript
 let monthFromDate;
@@ -231,7 +231,7 @@ const dateString = process.argv[2] ?? null;
 console.log(monthFromDate(dateString));
 ```
 
-We don't need to wait for the initializer because the module loader did that for us. We don't even need to know that there is an initializer - it's not part of the public API. We can run it on the command line like this:
+We don't need to wait for the initializer because the module loader did that for us. We don't even need to know that there is an initializer, so it's not part of the public API. We can run `main.js` on the command line like this:
 
 ```
 $ node main.mjs 2022-03-23
@@ -242,7 +242,7 @@ March
 
 ### Implementation of Initializer
 
-You can find the source code for a working implementation of `months.mjs` in [GitHub](https://github.com/dsyer/js-modules/blob/main/months.mjs). The basic ingredients are some code to load the months data (the asynchronous part) and some code to define the exported `monthFromDate()`. We start by extracting the data loading part to a separate function :
+You can find the source code for a working implementation of `months.mjs` in [GitHub](https://github.com/dsyer/js-modules/blob/main/months.mjs). The basic ingredients are some code to load the data (the asynchronous part) and some code to define the exported `monthFromDate()`. We start by extracting the data loading part to a separate function :
 
 ```javascript
 async function bytes(path) {
@@ -261,7 +261,7 @@ let init = async function () {
 }
 ```
 
-We want the `bytes()` function to work in the browser, loading the data from a remote endpoint, or in Node.js, loading from a local file. We can do that with `fetch` in the browser and the `fs` module in Node.js:
+We want the `bytes()` function to work in the browser, loading the data from a remote endpoint, and in Node.js, loading from a local file. We can do that with `fetch` in the browser and the `fs` module in Node.js:
 
 ```javascript
 async function bytes(path) {
@@ -341,7 +341,7 @@ Because `init()` is asynchronous it only looks like it works because there is a 
 </html>
 ```
 
-But `init()` is asynchronous, so `monthFromDate()` is not available until it has finished:
+The `init()` is asynchronous, so `monthFromDate()` is not available until it has finished:
 
 ```
 [x] Uncaught TypeError: monthFromDate is not a function
@@ -359,8 +359,8 @@ No doubt we could find a way to wait for the initialization to finish, but that 
 $ cat > main.js
 var month = require('./months.js')
 month.monthFromDate('2022-03-23')
-$ node main.js 2022-03-23
-/home/dsyer/dev/scratch/js-modules/month.js:3
+$ node main.js
+/home/dsyer/dev/scratch/js-modules/main.js:2
 console.log(month.monthFromDate(dateString));
                   ^
 
@@ -404,7 +404,7 @@ and in the browser:
 </html>
 ```
 
-That forces the user of the library to face the facts, but it seems like it should be unnecessary because `monthFromDate()` as originally implemented is not asynchronous. FWIW it seems to be the most common implementation choice for CommonJS modules in the wild.
+That forces the user of the library to face the facts, but it seems like it should be unnecessary because `monthFromDate()` as originally implemented is not asynchronous.
 
 ### Expose the Initializer
 
@@ -427,7 +427,7 @@ else
   this.init = () => initFunc(this)
 ```
 
-The user code now looks like this:
+The user code now looks like this in the REPL:
 
 ```javascript
 > var month = require('./months.js')
@@ -438,14 +438,14 @@ January
 March
 ```
 
-or
+or in a script:
 
 ```
-$ cat month.js
+$ cat main.js
 var month = require('./months.js');
 const dateString = process.argv[2] ?? null;
 month.init().then(() => console.log(month.monthFromDate(dateString)));
-$ node month.js 2022-03-23
+$ node main.js 2022-03-23
 Initialized months
 January
 March
@@ -453,7 +453,7 @@ March
 
 ## ES6 Core with a CommonJS Wrapper
 
-The slightly good news is that ES6 `import` is asynchronous by definition so if we re-arrange the library into an ES6 module `months.mjs` (same as at the beginning) users can just import and go. ES6 users can still use it just like before but the common folk will need their own wrapper (`months.js`):
+The slightly good news is that ES6 `import` is asynchronous by definition so if we re-arrange the library into an ES6 module `months.mjs` (same as at the beginning) users can just import it. I.e. ES6 users can still use it just like before but the common folk will need their own wrapper (`months.js`):
 
 ```javascript
 let initFunc = async function (exports) {
@@ -538,7 +538,7 @@ export {monthFromDate};
 export default monthFromDate
 ```
 
-but it doesn't work because there is no `require()` function.
+but it doesn't work because there is no `require()` function in an ES6 module.
 
 There's one last thing to try -- we can implement a module loader. Here is the code to read the CommonJS module as a raw string, and use `Function` to evaluate it:
 
@@ -578,7 +578,7 @@ This works in `main.mjs` and in the browser:
 </html>
 ```
 
-It would break if the module we required itself needed to `require()` another module. We could try and fix that by defining our own `require()` function using the code above, but sadly this will not work because it has to be asynchronous (as can be seen from the presence of `await`); with CommonJS `require()` is synchronous. In Node.js we can make it work with the "module" built in package:
+It would break if the module we required itself needed to `require()` another module. We could try and fix that by defining our own `require()` function using the code above, but sadly this will not work because it has to be asynchronous (as can be seen from the presence of `await`), while CommonJS `require()` is synchronous. In Node.js there is a "module" built-in package that saves the day:
 
 ```javascript
 await import('module').then(module => globalThis.require = module.createRequire(import.meta.url));
@@ -593,7 +593,7 @@ export {monthFromDate};
 export default monthFromDate
 ```
 
-but this won't work in the browser still.
+but this won't work in the browser.
 
 ### Browserify
 
@@ -604,7 +604,7 @@ $ npm install --no-save browserify
 $ node node_modules/browserify/bin/cmd.js -r ./months.js -r ./hello.js | sed -e 's,"/,"./,g' > bundle.js
 ```
 
-> NOTE: We had to fix the generated code with `sed` because for some reason it strips the leading `.` from relative module names.
+> NOTE: We had to fix the generated code with `sed` because it strips the leading `.` from relative module names.
 
 Then in a browser you could do this:
 
@@ -636,3 +636,8 @@ export {monthFromDate};
 export default monthFromDate
 ```
 
+This will work in Node.js and in the browser.
+
+## Conclusions
+
+We learned about 3 different ways to load modules in Javascript, and saw how each of them works (or doesn't work) in Node.js and in the browser. ES6 is part of the language specification, and is fully asynchronous, which turns out to be an advantage. CommonJS and plain browser globals are synchronous and that creates problems for libraries with asynchronous initializers. To create such a library that works in both Node.js and the browser is a challenge, and involves compomise unless the ES6 module loader can be used. We also looked at 2 different ways of supporting the same library for all 3 module loaders - it is preferable to write the main library in ES6 and provide a wrapper into the CommonJS and browser globals, otherwise some extra tooling has to be introduced to generate code for the browser.
