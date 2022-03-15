@@ -22,9 +22,9 @@ We are going to look at a simple example of each of those options, just to see h
 		- [Sort Of...](#sort-of)
 		- [Push the Async Concerns up the Stack](#push-the-async-concerns-up-the-stack)
 		- [Expose the Initializer](#expose-the-initializer)
-	- [ES6 Core with a CommonJS Wrapper](#es6-core-with-a-commonjs-wrapper)
 	- [CommonJS with an ES6 Wrapper](#commonjs-with-an-es6-wrapper)
 		- [Browserify](#browserify)
+	- [ES6 Core with a CommonJS Wrapper](#es6-core-with-a-commonjs-wrapper)
 	- [Conclusions](#conclusions)
 
 ## Simple ES6 Example
@@ -451,67 +451,9 @@ January
 March
 ```
 
-## ES6 Core with a CommonJS Wrapper
-
-The slightly good news is that ES6 `import` is asynchronous by definition so if we re-arrange the library into an ES6 module `months.mjs` (same as at the beginning) users can just import it. I.e. ES6 users can still use it just like before but the common folk will need their own wrapper (`months.js`):
-
-```javascript
-let initFunc = async function (exports) {
-  return import('./months.mjs').then(
-    months => {
-      exports.monthFromDate = months.monthFromDate;
-      return exports;
-    }
-  )
-}
-
-if (typeof module !== 'undefined' && module.exports)
-  module.exports.init = () => initFunc(exports)
-else
-  this.init = () => initFunc(window)
-```
-
-Then they can deal with the asynchronous initializer explicitly:
-
-```javascript
-> var month = require('./months.js')
-> await month.init().then(() => console.log(month.monthFromDate('2022-03-23')))
-Initialized months
-January
-March
-```
-
-It works in the browser with the global namespace:
-
-```html
-<html>
-    <body>
-        <h2>Month</h2>
-        <script src="./months.js"></script>
-        <script>
-            init().then(() => console.log(monthFromDate("2022-03-23")));
-        </script>
-    </body>
-</html>
-```
-
-but it also works (better) as an ES6 module:
-
-```html
-<html>
-    <body>
-        <h2>Month</h2>
-        <script type="module">
-            import monthFromDate from "./months.mjs";
-            console.log(monthFromDate("2022-03-23"));
-        </script>
-    </body>
-</html>
-```
-
 ## CommonJS with an ES6 Wrapper
 
-We can also try to wrap things up the opposite way. Starting with the CommonJS version of `months.js`, which already works in Node.js and in the browser like this:
+Starting with the CommonJS version of `months.js`, which already works in Node.js and in the browser like this:
 
 ```html
 <html>
@@ -672,6 +614,65 @@ export {monthFromDate};
 export default monthFromDate
 ```
 
+
+## ES6 Core with a CommonJS Wrapper
+
+The slightly good news is that ES6 `import` is asynchronous by definition so if we re-arrange the library into an ES6 module `months.mjs` (same as at the beginning) users can just import it. I.e. ES6 users can still use it just like before but the common folk will need their own wrapper (`months.js`):
+
+```javascript
+let initFunc = async function (exports) {
+  return import('./months.mjs').then(
+    months => {
+      exports.monthFromDate = months.monthFromDate;
+      return exports;
+    }
+  )
+}
+
+if (typeof module !== 'undefined' && module.exports)
+  module.exports.init = () => initFunc(exports)
+else
+  this.init = () => initFunc(window)
+```
+
+Then they can deal with the asynchronous initializer explicitly:
+
+```javascript
+> var month = require('./months.js')
+> await month.init().then(() => console.log(month.monthFromDate('2022-03-23')))
+Initialized months
+January
+March
+```
+
+It works in the browser with the global namespace:
+
+```html
+<html>
+    <body>
+        <h2>Month</h2>
+        <script src="./months.js"></script>
+        <script>
+            init().then(() => console.log(monthFromDate("2022-03-23")));
+        </script>
+    </body>
+</html>
+```
+
+but it also works (better) as an ES6 module:
+
+```html
+<html>
+    <body>
+        <h2>Month</h2>
+        <script type="module">
+            import monthFromDate from "./months.mjs";
+            console.log(monthFromDate("2022-03-23"));
+        </script>
+    </body>
+</html>
+```
+
 ## Conclusions
 
-We learned about 3 different ways to load modules in Javascript, and saw how each of them works (or doesn't work) in Node.js and in the browser. ES6 is part of the language specification, and is fully asynchronous, which turns out to be an advantage. CommonJS and plain browser globals are synchronous and that creates problems for libraries with asynchronous initializers. To create such a library that works in both Node.js and the browser is a challenge, and involves compomise unless the ES6 module loader can be used. We also looked at 2 different ways of supporting the same library for all 3 module loaders - it is preferable to write the main library in ES6 and provide a wrapper into the CommonJS and browser globals, otherwise some extra tooling has to be introduced to generate code for the browser.
+We learned about 3 different ways to load modules in Javascript, and saw how each of them works (or doesn't work) in Node.js and in the browser. ES6 is part of the language specification, and is fully asynchronous, which turns out to be an advantage. CommonJS and plain browser globals are synchronous and that creates problems for libraries with asynchronous initializers. To create such a library that works in both Node.js and the browser is a challenge, and involves compomises. We also looked at 2 different ways of supporting the same library for all 3 module loaders - it is preferable to write the main library in ES6 and provide a wrapper into the CommonJS and browser globals, otherwise some extra tooling has to be introduced to generate code for the browser.
