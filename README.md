@@ -601,32 +601,37 @@ There is a Node.js tool called [browserify](https://github.com/browserify/browse
 
 ```
 $ npm install --no-save browserify
-$ node node_modules/browserify/bin/cmd.js -r ./months.js -r ./hello.js | sed -e 's,"/,"./,g' > bundle.js
+$ node_modules/browserify/bin/cmd.js -r ./months.js -r ./hello.js -s bundle > bundle.js
 ```
-
-> NOTE: We had to fix the generated code with `sed` because it strips the leading `.` from relative module names.
 
 Then in a browser you could do this:
 
 ```html
-<script src="bundle.js"></script>
-<script>
-	var month = require('./months.js');
-</script>
+<html>
+	<body>
+		<h2>Bundle</h2>
+		<script src="bundle.js"></script>
+		<script>
+			bundle.init().then(() => console.log(bundle.monthFromDate('2022-03-23')));
+		</script>
+	</body>
+</html>
 ```
 
-It works because the generated `bundle.js` defines the global `require()` to load the named modules by running the code in the input source files. We can use that `bundle.js` in our ES6 wrapper:
+It works because the generated `bundle.js` defines a `require()` function to load the named modules by running the code in the input source files.
+
+We can use that `bundle.js` in our ES6 wrapper:
 
 ```javascript
+let month;
 if (typeof fetch === 'undefined') {
   await import('module').then(module => globalThis.require = module.createRequire(import.meta.url));
+  month = require('./months.js');
 } else {
   await fetch('./bundle.js').then(response => response.text()).then(script =>
-    globalThis.require = Function(script  + ';\nreturn require;')()
+    month = Function(script + ';\nreturn bundle;')()
   );
 }
-
-let month = require('./months.js');
 
 await month.init();
 
@@ -637,6 +642,35 @@ export default monthFromDate
 ```
 
 This will work in Node.js and in the browser.
+
+Another approach that works is to use browserify to define a global `require()` in the browser:
+
+```
+$ node_modules/browserify/bin/cmd.js -r ./months.js -r ./hello.js | sed -e 's,"/,"./,g' > bundle.js
+```
+
+> NOTE: We had to fix the generated code with `sed` because it strips the leading `.` from relative module names.
+
+and then in `months.mjs`:
+
+```javascript
+if (typeof fetch === 'undefined') {
+   await import('module').then(module => globalThis.require = module.createRequire(import.meta.url));
+ } else {
+   await fetch('./bundle.js').then(response => response.text()).then(script =>
+    globalThis.require = Function(script  + ';\nreturn require;')()
+   );
+ }
+ 
+let month = require('./months.js');
+
+await month.init();
+
+let monthFromDate = month.monthFromDate;
+
+export {monthFromDate};
+export default monthFromDate
+```
 
 ## Conclusions
 

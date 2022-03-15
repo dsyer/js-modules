@@ -1,13 +1,12 @@
+let month;
 if (typeof fetch === 'undefined') {
   await import('module').then(module => globalThis.require = module.createRequire(import.meta.url));
+  month = require('./months.js');
 } else {
   await fetch('./bundle.js').then(response => response.text()).then(script =>
-    globalThis.require = Function(script.replace('"/months.js"', '"./months.js"').replace('"/hello.js"', '"./hello.js"')  + ';\nreturn require;')()
+    month = Function(script + ';\nreturn bundle;')()
   );
 }
-
-
-let month = require('./months.js');
 
 await month.init();
 
