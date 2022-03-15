@@ -601,7 +601,7 @@ There is a Node.js tool called [browserify](https://github.com/browserify/browse
 
 ```
 $ npm install --no-save browserify
-$ node_modules/browserify/bin/cmd.js -r ./months.js -r ./hello.js -s bundle > bundle.js
+$ node_modules/browserify/bin/cmd.js -r ./months.js -s bundle > bundle.js
 ```
 
 Then in a browser you could do this:
