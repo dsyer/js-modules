@@ -489,7 +489,7 @@ let month = {};
 var script;
 
 if (typeof fetch === 'undefined') {
-  script = await import('fs').then(fs => fs.readFileSync(path, {encoding: 'utf8'}));
+  script = await import('fs').then(fs => fs.readFileSync('./months.js', {encoding: 'utf8'}));
 } else {
   script = await fetch('./months.js').then(response => response.text()));
 }

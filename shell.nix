@@ -1,19 +1,34 @@
 with import <nixpkgs> { };
 
-mkShell {
+let
+
+  nixos-playwright = stdenv.mkDerivation {
+  pname = "nixos-playwright";
+  version = "0.0.1";
+  src = fetchgit {
+    url = "https://github.com/ludios/nixos-playwright";
+    sha256 = "1yb4dx67x3qxs2842hxhhlqb0knvz6ib2fmws50aid9mzaxbl0w0";
+    rev = "fdafd9d4e0e76bac9283c35a81c7c0481a8b1313";
+  };
+  phases = [ "installPhase" ];
+  installPhase = ''
+    mkdir -p $out/bin
+    cd $out/bin && cp $src/* .
+  '';
+};
+
+in mkShell {
 
   name = "env";
   buildInputs = [
-    figlet nodejs python3 google-chrome-dev firefox-bin
+    figlet nodejs python3 google-chrome-dev firefox-bin nixos-playwright
   ];
 
   shellHook = ''
     export PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=true
-    git clone https://github.com/ludios/nixos-playwright /tmp/nixos-playwright || echo Already cloned
-    (cd /tmp/nixos-playwright; git pull --rebase)
     npm install -D playwright
     npx playwright install
-    /tmp/nixos-playwright/fix-playwright-browsers
+    fix-playwright-browsers
   '';
 
 }
